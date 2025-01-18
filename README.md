@@ -1,3 +1,3 @@
 # Atomic Reference Counter
 
-Implementing an Arc from scratch in rust.
+Implementing a thread safe reference counted shared pointer from scratch in Rust. Aiming for an implementation identical to std::Arc.
