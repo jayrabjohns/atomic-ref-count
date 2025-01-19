@@ -1,7 +1,8 @@
 use std::{
     ops::Deref,
+    process,
     ptr::NonNull,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{fence, AtomicUsize, Ordering},
 };
 
 struct InnerArc<T> {
@@ -48,7 +49,7 @@ impl<T> Clone for Arc<T> {
 
         // TODO: handle overflow
         if new_count > usize::MAX / 2 {
-            std::process::abort();
+            process::abort();
         }
 
         Self { inner: self.inner }
@@ -57,11 +58,13 @@ impl<T> Clone for Arc<T> {
 
 impl<T> Drop for Arc<T> {
     fn drop(&mut self) {
-        // TODO: Memory ordering.
-        if self.inner().ref_count.fetch_sub(1, Ordering::Relaxed) == 1 {
+        let updated_count = self.inner().ref_count.fetch_sub(1, Ordering::Release);
+
+        if updated_count == 1 {
+            fence(Ordering::Acquire);
+
             unsafe {
-                let inner: Box<InnerArc<T>> = Box::from_raw(self.inner.as_ptr());
-                drop(inner);
+                drop(Box::from_raw(self.inner.as_ptr()));
             }
         }
     }
