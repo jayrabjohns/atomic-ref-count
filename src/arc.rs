@@ -30,6 +30,18 @@ impl<T> Arc<T> {
         }
     }
 
+    pub fn get_mut(arc: &mut Self) -> Option<&mut T> {
+        let count: usize = arc.inner().ref_count.load(Ordering::Relaxed);
+
+        if count == 1 {
+            fence(Ordering::Acquire);
+
+            unsafe { Some(&mut arc.inner.as_mut().value) }
+        } else {
+            None
+        }
+    }
+
     fn inner(&self) -> &InnerArc<T> {
         unsafe { self.inner.as_ref() }
     }
@@ -45,10 +57,10 @@ impl<T> Deref for Arc<T> {
 
 impl<T> Clone for Arc<T> {
     fn clone(&self) -> Self {
-        let new_count = self.inner().ref_count.fetch_add(1, Ordering::Relaxed);
+        let count: usize = self.inner().ref_count.fetch_add(1, Ordering::Relaxed);
 
         // TODO: handle overflow
-        if new_count > usize::MAX / 2 {
+        if count > usize::MAX / 2 {
             process::abort();
         }
 
@@ -58,9 +70,9 @@ impl<T> Clone for Arc<T> {
 
 impl<T> Drop for Arc<T> {
     fn drop(&mut self) {
-        let updated_count = self.inner().ref_count.fetch_sub(1, Ordering::Release);
+        let count: usize = self.inner().ref_count.fetch_sub(1, Ordering::Release);
 
-        if updated_count == 1 {
+        if count == 1 {
             fence(Ordering::Acquire);
 
             unsafe {

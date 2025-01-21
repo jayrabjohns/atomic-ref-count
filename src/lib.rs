@@ -26,13 +26,13 @@ mod tests {
         let arc = Arc::new(DropCounter { value: "hello" });
         let cloned_arc = arc.clone();
 
-        let t = thread::spawn(move || {
+        let handle = thread::spawn(move || {
             assert_eq!(arc.value, "hello");
         });
 
         assert_eq!(cloned_arc.value, "hello");
 
-        t.join().unwrap();
+        handle.join().unwrap();
 
         assert_eq!(NUM_DROPS.load(Ordering::Relaxed), 0);
 
